@@ -48,7 +48,7 @@ class DijkstraPolicy(RouteController):
                 if not unvisited:
                     break
                 if current_edge==vehicle.destination:
-                    break
+                    break 
                 possible_edges = [edge for edge in unvisited.items() if edge[1]]
                 current_edge, current_distance = sorted(possible_edges, key=lambda x: x[1])[0]
                 #print('{}:{}------------'.format(current_edge, current_distance))

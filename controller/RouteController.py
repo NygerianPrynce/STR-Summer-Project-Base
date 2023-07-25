@@ -114,33 +114,48 @@ class RandomPolicy(RouteController):
         """
 
         local_targets = {}
+        #print('PRINTING MY PRINTS')
+        x = 0
         for vehicle in vehicles:
             start_edge = vehicle.current_edge
-
+            #print(start_edge)
             '''
             Your algo starts here
             '''
             decision_list = []
-
+            #create a decision list for each car based on them going through the map in the fastest scenario possible
+            current_edge = vehicle.current_edge
+            print("STARTING edge: ", current_edge)
+            print("DESTINATION edge: ", vehicle.destination)
+            
             i = 0
+            print(vehicle)
             while i < 10:  # choose the number of decisions to make in advanced; depends on the algorithm and network
                 choice = self.direction_choices[random.randint(0, 5)]  # 6 choices available in total
-
+                #print(connection_info)
                 # dead end
                 if len(self.connection_info.outgoing_edges_dict[start_edge].keys()) == 0:
+                    print("DED END")
                     break
 
                 # make sure to check if it's a valid edge
                 if choice in self.connection_info.outgoing_edges_dict[start_edge].keys():
+                    print("CHOICE MADE")
                     decision_list.append(choice)
                     start_edge = self.connection_info.outgoing_edges_dict[start_edge][choice]
-
+                    current_edge = vehicle.current_edge
+                    print("current edge: ", current_edge)
+                    print("start edge: ",start_edge)
                     if i > 0:
                         if decision_list[i-1] == decision_list[i] and decision_list[i] == 't':
                             # stuck in a turnaround loop, let TRACI remove vehicle
+                            print("turn around loop?")
                             break
 
                     i += 1
+                if current_edge==vehicle.destination:
+                    print("found destination")
+                    break
 
             '''
             Your algo ends here
