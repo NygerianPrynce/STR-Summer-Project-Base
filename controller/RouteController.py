@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+import math
 import random
 import os
 import sys
@@ -17,6 +18,9 @@ LEFT = "l"
 RIGHT = "r"
 SLIGHT_LEFT = "L"
 SLIGHT_RIGHT = "R"
+
+
+
 
 class RouteController(ABC):
     """
@@ -84,7 +88,36 @@ class RouteController(ABC):
     def make_decisions(self, vehicles, connection_info):
         pass
 
+def midpoint(points):
+        """
+        Finds the midpoint between multiple points.
 
+        Args:
+            points: A list of points.
+
+        Returns:
+            The midpoint of the points.
+        """
+
+        x = sum([x for x, y in points]) / len(points)
+        y = sum([y for x, y in points]) / len(points)
+
+        return (x, y)
+    
+"""def findDistanceOfEdge(connection_info, edge):
+    network = sumolib.net.readNet(connection_info.net_filename, withInternal=True)
+    midFrom = midpoint(network.getEdge(edge).getFromNode().getShape())
+    midTo = midpoint(network.getEdge(edge).getToNode().getShape())
+    distance = math.hypot(midFrom[0] - midTo[0], midFrom[1] - midTo[1])
+    return distance"""
+
+def findDistanceBetweenEdges(connection_info, edge1, edge2):
+    network = sumolib.net.readNet(connection_info.net_filename, withInternal=True)
+    midTo = midpoint(network.getEdge(edge1).getToNode().getShape())
+    midFrom = midpoint(network.getEdge(edge2).getFromNode().getShape())
+    distance = math.hypot(midTo[0] - midFrom[0], midTo[1] - midFrom[1])
+    return distance
+    
 class RandomPolicy(RouteController):
     """
     Example class for a custom scheduling algorithm.
@@ -93,7 +126,9 @@ class RandomPolicy(RouteController):
     """
     def __init__(self, connection_info):
         super().__init__(connection_info)
-
+        
+    
+    
     def make_decisions(self, vehicles, connection_info):
         """
         A custom scheduling algorithm can be written in between the 'Your algo...' comments.
@@ -118,20 +153,22 @@ class RandomPolicy(RouteController):
         x = 0
         for vehicle in vehicles:
             start_edge = vehicle.current_edge
-            #print(start_edge)
+            print(vehicle)
+            print("STARTING edge: ", start_edge)
+            print("DISTANCE OF EDGE: ", sumolib.net.readNet(connection_info.net_filename, withInternal=True).getEdge(start_edge).getLength())
+            print("DESTINATION edge: ", vehicle.destination)
+            print("DISTANCE BETWEEN EDGE AND DESTINATION: ", findDistanceBetweenEdges(connection_info, start_edge, vehicle.destination))
+            print("From Node of Destination Edge: ", sumolib.net.readNet(connection_info.net_filename, withInternal=True).getEdge(vehicle.destination).getFromNode().getShape())
             '''
             Your algo starts here
             '''
             decision_list = []
             #create a decision list for each car based on them going through the map in the fastest scenario possible
-            current_edge = vehicle.current_edge
-            print("STARTING edge: ", current_edge)
-            print("DESTINATION edge: ", vehicle.destination)
             
             i = 0
-            print(vehicle)
-            while i < 10:  # choose the number of decisions to make in advanced; depends on the algorithm and network
-                choice = self.direction_choices[random.randint(0, 5)]  # 6 choices available in total
+            visitedEdges = []
+            visitedEdges.append(start_edge)
+            while i < 20:  # choose the number of decisions to make in advanced; depends on the algorithm and network
                 #print(connection_info)
                 # dead end
                 if len(self.connection_info.outgoing_edges_dict[start_edge].keys()) == 0:
@@ -139,23 +176,45 @@ class RandomPolicy(RouteController):
                     break
 
                 # make sure to check if it's a valid edge
-                if choice in self.connection_info.outgoing_edges_dict[start_edge].keys():
-                    print("CHOICE MADE")
-                    decision_list.append(choice)
-                    start_edge = self.connection_info.outgoing_edges_dict[start_edge][choice]
-                    current_edge = vehicle.current_edge
-                    print("current edge: ", current_edge)
-                    print("start edge: ",start_edge)
+                if len(self.connection_info.outgoing_edges_dict[start_edge].keys()) != 0:
+                    globalBreak = False
+                    print("Making Choice")
+                    possibleChoices = list(self.connection_info.outgoing_edges_dict[start_edge].keys())
+                    print(possibleChoices)
+                    times = 0
+                    bestPossibleChoice = possibleChoices[0]
+                    for x, choice in enumerate(possibleChoices):
+                        probableEdge = self.connection_info.outgoing_edges_dict[start_edge][choice]
+                        prevEdge  = self.connection_info.outgoing_edges_dict[start_edge][bestPossibleChoice]
+                        if len(self.connection_info.outgoing_edges_dict[probableEdge].keys()) != 0 and probableEdge not in visitedEdges:
+                            if (findDistanceBetweenEdges(connection_info, probableEdge, vehicle.destination) < findDistanceBetweenEdges(connection_info, prevEdge, vehicle.destination)):
+                                bestPossibleChoice = choice
+                            elif(prevEdge != probableEdge and prevEdge in visitedEdges):
+                                print("BIG BODY CHEWST")
+                                bestPossibleChoice = choice
+                            
+                    print("BEST POSSIBLE CHOICE: ", bestPossibleChoice)
+                    decision_list.append(bestPossibleChoice)
+                    start_edge = self.connection_info.outgoing_edges_dict[start_edge][bestPossibleChoice]
+                    visitedEdges.append(start_edge)
+                    
                     if i > 0:
                         if decision_list[i-1] == decision_list[i] and decision_list[i] == 't':
                             # stuck in a turnaround loop, let TRACI remove vehicle
                             print("turn around loop?")
-                            break
-
+                            break  
                     i += 1
-                if current_edge==vehicle.destination:
-                    print("found destination")
+                if start_edge==vehicle.destination:
+                    print("FOUND DESTINATION")
                     break
+                #FORCED LANE SWITCH
+                if(findDistanceBetweenEdges(connection_info, start_edge, vehicle.destination) == 0):
+                    possibleChoices = list(self.connection_info.outgoing_edges_dict[start_edge].keys())
+                    self.connection_info.outgoing_edges_dict[start_edge][choice]
+                    print("DOBLE SIDED ROAD PROBLEM")
+                print("DISTANCE BETWEEN EDGE AND DESTINATION: ", findDistanceBetweenEdges(connection_info, start_edge, vehicle.destination))
+                print("------------------------------------")
+
 
             '''
             Your algo ends here
