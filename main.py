@@ -61,6 +61,13 @@ def test_random_policy(vehicles):
     scheduler = RandomPolicy(init_connection_info)
     run_simulation(scheduler, vehicles)
 
+def testBothPolicies(vehicles):
+    print("Testing Dijkstra's Algorithm Route Controller")
+    scheduler = DijkstraPolicy(init_connection_info)
+    run_simulation(scheduler, vehicles)
+    print("Testing Random's Algorithm Route Controller")
+    scheduler = RandomPolicy(init_connection_info)
+    run_simulation(scheduler, vehicles)
 
 def run_simulation(scheduler, vehicles):
 
@@ -98,3 +105,4 @@ if __name__ == "__main__":
             v.destination, v.start_time, v.deadline))
     #test_dijkstra_policy(vehicles)
     test_random_policy(vehicles)
+    #testBothPolicies(vehicles)

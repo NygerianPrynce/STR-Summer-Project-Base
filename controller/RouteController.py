@@ -159,62 +159,89 @@ class RandomPolicy(RouteController):
             print("DESTINATION edge: ", vehicle.destination)
             print("DISTANCE BETWEEN EDGE AND DESTINATION: ", findDistanceBetweenEdges(connection_info, start_edge, vehicle.destination))
             print("From Node of Destination Edge: ", sumolib.net.readNet(connection_info.net_filename, withInternal=True).getEdge(vehicle.destination).getFromNode().getShape())
+
             '''
             Your algo starts here
             '''
             decision_list = []
             #create a decision list for each car based on them going through the map in the fastest scenario possible
-            
+            current_edge = start_edge
             i = 0
             visitedEdges = []
             visitedEdges.append(start_edge)
+            blackListedEdges = []
             while i < 20:  # choose the number of decisions to make in advanced; depends on the algorithm and network
-                #print(connection_info)
+                skip = False
                 # dead end
-                if len(self.connection_info.outgoing_edges_dict[start_edge].keys()) == 0:
+                if len(self.connection_info.outgoing_edges_dict[current_edge].keys()) == 0:
                     print("DED END")
                     break
 
                 # make sure to check if it's a valid edge
-                if len(self.connection_info.outgoing_edges_dict[start_edge].keys()) != 0:
-                    globalBreak = False
+                if len(self.connection_info.outgoing_edges_dict[current_edge].keys()) != 0:
                     print("Making Choice")
-                    possibleChoices = list(self.connection_info.outgoing_edges_dict[start_edge].keys())
+                    possibleChoices = list(self.connection_info.outgoing_edges_dict[current_edge].keys())
                     print(possibleChoices)
-                    times = 0
-                    bestPossibleChoice = possibleChoices[0]
+                    bestPossibleChoice = None
                     for x, choice in enumerate(possibleChoices):
-                        probableEdge = self.connection_info.outgoing_edges_dict[start_edge][choice]
-                        prevEdge  = self.connection_info.outgoing_edges_dict[start_edge][bestPossibleChoice]
-                        if len(self.connection_info.outgoing_edges_dict[probableEdge].keys()) != 0 and probableEdge not in visitedEdges:
-                            if (findDistanceBetweenEdges(connection_info, probableEdge, vehicle.destination) < findDistanceBetweenEdges(connection_info, prevEdge, vehicle.destination)):
+                        probableEdge = self.connection_info.outgoing_edges_dict[current_edge][choice]
+                        print(probableEdge, len(str(probableEdge)))
+                        print(vehicle.destination, len(str(vehicle.destination)))
+                        if (len((self.connection_info.outgoing_edges_dict[probableEdge].keys())) != 0) or (self.connection_info.outgoing_edges_dict[current_edge][choice] == vehicle.destination): #might remove probable edge # and probableEdge not in visitedEdges
+                            firstTime = False
+                            if (bestPossibleChoice is None):
                                 bestPossibleChoice = choice
-                            elif(prevEdge != probableEdge and prevEdge in visitedEdges):
-                                print("BIG BODY CHEWST")
+                                firstTime = True
+                            if (self.connection_info.outgoing_edges_dict[current_edge][choice] == vehicle.destination):
                                 bestPossibleChoice = choice
-                            
-                    print("BEST POSSIBLE CHOICE: ", bestPossibleChoice)
-                    decision_list.append(bestPossibleChoice)
-                    start_edge = self.connection_info.outgoing_edges_dict[start_edge][bestPossibleChoice]
-                    visitedEdges.append(start_edge)
-                    
-                    if i > 0:
+                                print("destination reached - breaking")
+                                break
+                            elif((str(probableEdge) in str(vehicle.destination)) and (len(str(probableEdge)) != len(str(vehicle.destination))) and (len(possibleChoices) > 1)):
+                                print("funky part 1 - edge blacklisted and should not turn here")
+                                blackListedEdges.append(probableEdge)
+                                if(firstTime):
+                                    print("funky part 2 - edge has been removed off default choice")
+                                    print("Option: ", x)
+                                    bestPossibleChoice = None
+                                continue
+                            elif (findDistanceBetweenEdges(connection_info, probableEdge, vehicle.destination) < findDistanceBetweenEdges(connection_info, self.connection_info.outgoing_edges_dict[current_edge][bestPossibleChoice], vehicle.destination)): #finds best choice
+                                if(probableEdge in blackListedEdges and findDistanceBetweenEdges(connection_info, self.connection_info.outgoing_edges_dict[current_edge][bestPossibleChoice] in blackListedEdges)):
+                                    print("both blacklisted, look for new route")
+                                    continue
+                                if(probableEdge in blackListedEdges):
+                                    print('BLACK LISTED')
+                                    continue
+                                elif(str(probableEdge) in str(vehicle.destination) and len(str(probableEdge)) != len(str(vehicle.destination))):
+                                    print('Black Listing Edge')
+                                    blackListedEdges.append(probableEdge)
+                                    latestDecision = decision_list.pop()
+                                    blackListedEdges.append(latestDecision) #remove the last decision
+                                    #go back to the previous edge
+                                    current_edge = start_edge
+                                    for decision in decision_list:
+                                        current_edge = self.connection_info.outgoing_edges_dict[current_edge][decision]
+                                    skip = True
+                                else:    
+                                    print("Passed black listing proccess")
+                                    bestPossibleChoice = choice
+                    if(not skip):
+                        print("BEST POSSIBLE CHOICE: ", bestPossibleChoice)
+                        decision_list.append(bestPossibleChoice)
+                        current_edge = self.connection_info.outgoing_edges_dict[current_edge][bestPossibleChoice]
+
+                    if i > 0 and len(decision_list)>1:
                         if decision_list[i-1] == decision_list[i] and decision_list[i] == 't':
                             # stuck in a turnaround loop, let TRACI remove vehicle
                             print("turn around loop?")
                             break  
                     i += 1
-                if start_edge==vehicle.destination:
+                if current_edge==vehicle.destination:
                     print("FOUND DESTINATION")
                     break
-                #FORCED LANE SWITCH
-                if(findDistanceBetweenEdges(connection_info, start_edge, vehicle.destination) == 0):
-                    possibleChoices = list(self.connection_info.outgoing_edges_dict[start_edge].keys())
-                    self.connection_info.outgoing_edges_dict[start_edge][choice]
-                    print("DOBLE SIDED ROAD PROBLEM")
-                print("DISTANCE BETWEEN EDGE AND DESTINATION: ", findDistanceBetweenEdges(connection_info, start_edge, vehicle.destination))
+                print("DISTANCE BETWEEN EDGE AND DESTINATION: ", findDistanceBetweenEdges(connection_info, current_edge, vehicle.destination))
                 print("------------------------------------")
-
+                if(i == 20):
+                    print("PROBLEM AREA")
 
             '''
             Your algo ends here
