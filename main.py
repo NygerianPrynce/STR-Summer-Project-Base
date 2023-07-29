@@ -21,6 +21,7 @@ else:
 
 from sumolib import checkBinary
 import traci
+import copy
 
 
 # use vehicle generation protocols to generate vehicle list
@@ -104,5 +105,9 @@ if __name__ == "__main__":
         print("id: {}, destination: {}, start time:{}, deadline: {};".format(vid, \
             v.destination, v.start_time, v.deadline))
     #test_dijkstra_policy(vehicles)
+    #copy.deepcopy(vehicles)
     test_random_policy(vehicles)
     #testBothPolicies(vehicles)
+    #x = vehicles.copy.deepcopy()
+
+

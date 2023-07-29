@@ -187,6 +187,7 @@ class RandomPolicy(RouteController):
                         probableEdge = self.connection_info.outgoing_edges_dict[current_edge][choice]
                         print(probableEdge, len(str(probableEdge)))
                         print(vehicle.destination, len(str(vehicle.destination)))
+                        print("CHOICE: ", choice)
                         if (len((self.connection_info.outgoing_edges_dict[probableEdge].keys())) != 0) or (self.connection_info.outgoing_edges_dict[current_edge][choice] == vehicle.destination): #might remove probable edge # and probableEdge not in visitedEdges
                             firstTime = False
                             if (bestPossibleChoice is None):
@@ -196,31 +197,46 @@ class RandomPolicy(RouteController):
                                 bestPossibleChoice = choice
                                 print("destination reached - breaking")
                                 break
-                            elif((str(probableEdge) in str(vehicle.destination)) and (len(str(probableEdge)) != len(str(vehicle.destination))) and (len(possibleChoices) > 1)):
-                                print("funky part 1 - edge blacklisted and should not turn here")
-                                blackListedEdges.append(probableEdge)
-                                if(firstTime):
-                                    print("funky part 2 - edge has been removed off default choice")
-                                    print("Option: ", x)
-                                    bestPossibleChoice = None
+                            if ((probableEdge in blackListedEdges) and (self.connection_info.outgoing_edges_dict[current_edge][bestPossibleChoice] not in blackListedEdges) and (probableEdge != self.connection_info.outgoing_edges_dict[current_edge][bestPossibleChoice])):
+                                print("Probable Edge is Blacklisted so will not be considered")
                                 continue
-                            elif (findDistanceBetweenEdges(connection_info, probableEdge, vehicle.destination) < findDistanceBetweenEdges(connection_info, self.connection_info.outgoing_edges_dict[current_edge][bestPossibleChoice], vehicle.destination)): #finds best choice
-                                if(probableEdge in blackListedEdges and findDistanceBetweenEdges(connection_info, self.connection_info.outgoing_edges_dict[current_edge][bestPossibleChoice] in blackListedEdges)):
-                                    print("both blacklisted, look for new route")
-                                    continue
-                                if(probableEdge in blackListedEdges):
-                                    print('BLACK LISTED')
-                                    continue
-                                elif(str(probableEdge) in str(vehicle.destination) and len(str(probableEdge)) != len(str(vehicle.destination))):
-                                    print('Black Listing Edge')
-                                    blackListedEdges.append(probableEdge)
+                            elif ((probableEdge not in blackListedEdges) and (self.connection_info.outgoing_edges_dict[current_edge][bestPossibleChoice] in blackListedEdges) and (probableEdge != self.connection_info.outgoing_edges_dict[current_edge][bestPossibleChoice])):
+                                print('Old Edge Black Listed, so forcible choosing the other')
+                                bestPossibleChoice = choice
+                                continue
+                            elif ((probableEdge in blackListedEdges) and (self.connection_info.outgoing_edges_dict[current_edge][bestPossibleChoice] in blackListedEdges) and (probableEdge != self.connection_info.outgoing_edges_dict[current_edge][bestPossibleChoice])):
+                                print("both blacklisted, look for new route by taking worse option")
+                                if(findDistanceBetweenEdges(connection_info, probableEdge, vehicle.destination) > findDistanceBetweenEdges(connection_info, self.connection_info.outgoing_edges_dict[current_edge][bestPossibleChoice], vehicle.destination)):
+                                    bestPossibleChoice = choice
+                                continue
+                            elif((str(probableEdge)[-4:] in str(vehicle.destination)) and (len(str(probableEdge)) != len(str(vehicle.destination))) and (probableEdge not in blackListedEdges)):
+                                print('Black Listing Edge: ', probableEdge)
+                                blackListedEdges.append(probableEdge)
+                                if(len(decision_list) > 0):
+                                    print("Black Listing Edge and Back Tracking Once")
                                     latestDecision = decision_list.pop()
-                                    blackListedEdges.append(latestDecision) #remove the last decision
-                                    #go back to the previous edge
+                                    blackListedEdges.append(latestDecision)#remove the last decision
                                     current_edge = start_edge
                                     for decision in decision_list:
                                         current_edge = self.connection_info.outgoing_edges_dict[current_edge][decision]
                                     skip = True
+                                    while True:
+                                        if (len(list(self.connection_info.outgoing_edges_dict[current_edge].keys())) == 1 and len(decision_list) > 0):
+                                            print("Back Tracking More Than Once")
+                                            latestDecision = decision_list.pop()
+                                            blackListedEdges.append(latestDecision)#remove the last decision
+                                            current_edge = start_edge
+                                            for decision in decision_list:
+                                                current_edge = self.connection_info.outgoing_edges_dict[current_edge][decision]
+                                        else:
+                                            break
+                                    break
+                                #go back to the previous edge
+                                skip = True
+                            elif (findDistanceBetweenEdges(connection_info, probableEdge, vehicle.destination) < findDistanceBetweenEdges(connection_info, self.connection_info.outgoing_edges_dict[current_edge][bestPossibleChoice], vehicle.destination)): #finds best choice
+                                if(probableEdge in blackListedEdges):
+                                    print('BLACK LISTED')
+                                    continue
                                 else:    
                                     print("Passed black listing proccess")
                                     bestPossibleChoice = choice
@@ -228,8 +244,8 @@ class RandomPolicy(RouteController):
                         print("BEST POSSIBLE CHOICE: ", bestPossibleChoice)
                         decision_list.append(bestPossibleChoice)
                         current_edge = self.connection_info.outgoing_edges_dict[current_edge][bestPossibleChoice]
-
-                    if i > 0 and len(decision_list)>1:
+                    
+                    if i > 0 and i<len(decision_list):
                         if decision_list[i-1] == decision_list[i] and decision_list[i] == 't':
                             # stuck in a turnaround loop, let TRACI remove vehicle
                             print("turn around loop?")
